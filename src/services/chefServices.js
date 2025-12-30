@@ -1,4 +1,4 @@
-import {supabase} from '../config/supabase.js';
+import { supabase } from '../config/supabase.js';
 
 // ---------------- Register Chef ----------------
 export const registerChefService = async ({
@@ -34,7 +34,7 @@ export const registerChefService = async ({
 
   // 2) chefProfiles
   const { data: chefProfileData, error: chefProfileError } =
-    await   supabase
+    await supabase
       .from('chefProfiles')
       .upsert({
         ChefId: userId,
@@ -165,4 +165,75 @@ export const getAvailabilityService = async (userId) => {
   if (error) throw new Error(error.message);
 
   return data;
+};
+
+// ---------------- Public Profile (Customer View) ----------------
+export const getChefPublicProfileService = async (chefId) => {
+  // 1. Fetch User & Profile
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select(`
+      Id, Name, Phone, Address,
+      chefProfiles (
+        Cuisine, Rating, About, ProfileUrl, TotalBookings, ResponseRate, Experience
+      ),
+      chefAvailability ( LocLat, LocLng )
+    `)
+    .eq('Id', chefId)
+    .single();
+
+  if (userError || !userData) return null;
+
+  // 2. Fetch Cuisines for Mapping
+  const { data: cuisinesData } = await supabase
+    .from('cuisines')
+    .select('CuisineId, Name');
+
+  const cuisineMap = (cuisinesData || []).reduce((acc, c) => {
+    acc[c.CuisineId] = c.Name;
+    return acc;
+  }, {});
+
+  // 3. Fetch Dishes with Customer Pricing (Manual Join to avoid relationship errors)
+  const { data: menuMapData, error: menuMapError } = await supabase
+    .from('dishMapChef')
+    .select(`
+      DishId,
+      BasePricePerPerson,
+      IsSpecial
+    `)
+    .eq('ChefId', chefId);
+
+  if (menuMapError) throw new Error(menuMapError.message);
+
+  let menuData = [];
+  if (menuMapData && menuMapData.length > 0) {
+    const dishIds = menuMapData.map(d => d.DishId);
+
+    const { data: dishesData, error: dishesError } = await supabase
+      .from('dishes')
+      .select('DishId, Name, Description, Ingredients, IsVegetarian')
+      .in('DishId', dishIds);
+
+    if (dishesError) throw new Error(dishesError.message);
+
+    // Merge data
+    const dishMap = (dishesData || []).reduce((acc, d) => {
+      acc[d.DishId] = d;
+      return acc;
+    }, {});
+
+    menuData = menuMapData.map(item => ({
+      ...item,
+      dishes: dishMap[item.DishId] || {} // Mocking the structure expected: item.dishes.Name, etc.
+    }));
+  }
+
+  return {
+    userData,
+    chefProfile: userData.chefProfiles,
+    availability: userData.chefAvailability,
+    cuisineMap,
+    menuData
+  };
 };

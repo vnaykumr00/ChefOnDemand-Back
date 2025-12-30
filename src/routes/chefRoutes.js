@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import {verifySupabaseToken} from '../middleware/auth.middleware.js';
+import { verifySupabaseToken } from '../middleware/auth.middleware.js';
 import {
   registerChef,
   getRegistrationDishes,
@@ -7,6 +7,7 @@ import {
   setAvailability,
   deleteAvailability,
   getAvailability,
+  getChefPublicProfile,
 } from '../controllers/chefController.js';
 
 const router = Router();
@@ -20,6 +21,7 @@ router.get('/profile/:chefId', verifySupabaseToken, getChefProfile);
 router.post('/availability', verifySupabaseToken, setAvailability);
 router.delete('/availability', verifySupabaseToken, deleteAvailability);
 router.get('/availability', verifySupabaseToken, getAvailability);
+router.get('/public/:chefId', verifySupabaseToken, getChefPublicProfile);
 
 
 export default router;

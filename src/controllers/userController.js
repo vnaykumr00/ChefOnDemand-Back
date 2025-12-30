@@ -78,14 +78,15 @@ export async function status(req, res) {
 export async function nearbyChefs(req, res) {
   try {
     const chefs = await getNearbyChefs({
-      lat: 20.13536,
-      lng: 79.0822912,
+      lat: 16.68424150,
+      lng: 74.25901480,
       limit: 20,
       maxDistance: 5000000000,
     });
 
     res.json({ nearbyChefs: chefs, totalFound: chefs.length });
   } catch (e) {
-    res.status(500).json({ message: "Server error" });
+    console.error("Error in nearbyChefs:", e);
+    res.status(500).json({ message: "Server error", error: e.message });
   }
 }
