@@ -50,6 +50,10 @@ export async function getNearbyChefs({ lat, lng, limit, maxDistance }) {
           ProfileUrl,
           Rating,
           About
+        ),
+        dishMapChef (
+          ImageUrl,
+          IsSpecial
         )
       )
     `);
@@ -97,6 +101,23 @@ export async function getNearbyChefs({ lat, lng, limit, maxDistance }) {
       const cuisineIds = profile.Cuisine || [];
       const cuisineNames = cuisineIds.map(id => cuisineMap[id] || `Unknown (${id})`);
 
+      // Extract Dish Images
+      const rawDishes = row.users?.dishMapChef || [];
+      // Prefer Special dishes images first, then others
+      const dishImages = rawDishes
+        .filter(d => d.ImageUrl)
+        .sort((a, b) => (b.IsSpecial === true ? 1 : 0) - (a.IsSpecial === true ? 1 : 0))
+        .map(d => {
+          // Transform Google Drive URLs to reliable CDN view links
+          if (d.ImageUrl.includes('drive.google.com') && d.ImageUrl.includes('id=')) {
+            const idMatch = d.ImageUrl.match(/id=([^&]+)/);
+            if (idMatch && idMatch[1]) {
+              return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+            }
+          }
+          return d.ImageUrl;
+        });
+
       return {
         id: row.ChefId,
         name: row.users?.Name || "",
@@ -106,8 +127,8 @@ export async function getNearbyChefs({ lat, lng, limit, maxDistance }) {
         cuisine: cuisineNames, // Returning names instead of IDs
         rating: profile.Rating || 0,
         about: profile.About || "",
-        image: profile.ProfileUrl?.image || "https://images.unsplash.com/photo-1577219491136-5dd90d9779df?q=80&w=300&auto=format&fit=crop",
-        specialDishes: profile.ProfileUrl?.specialDishes || []
+        image: profile.ProfileUrl?.image || (dishImages.length > 0 ? dishImages[0] : "https://images.unsplash.com/photo-1577219491136-5dd90d9779df?q=80&w=300&auto=format&fit=crop"),
+        specialDishes: dishImages.length > 0 ? dishImages : (profile.ProfileUrl?.specialDishes || [])
       };
     })
     .filter((r) => !maxDistKm || r.distanceKm <= maxDistKm)

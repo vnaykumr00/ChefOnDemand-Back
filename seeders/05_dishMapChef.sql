@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS "dishMapChef" (
     "DishId"             INT         NOT NULL REFERENCES "dishes"("DishId") ON DELETE CASCADE,
     "BasePricePerPerson" DECIMAL(8, 2) NOT NULL,  -- Increased precision for future-proofing
     "IsSpecial"          BOOLEAN DEFAULT FALSE,
+    "ImageUrl"           TEXT,
     "CreatedAt"          TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "UpdatedAt"          TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY ("ChefId", "DishId")

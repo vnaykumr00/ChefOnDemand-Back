@@ -58,14 +58,45 @@ export const registerChefService = async ({
 
   // 3) dishMapChef
   if (dishes && dishes.length > 0) {
-    const dishMappings = dishes.map((d) => ({
-      ChefId: userId,
-      DishId: d.dishId,
-      BasePricePerPerson: parseFloat(d.price) || 0,
-      IsSpecial: d.isSpecial || false,
-      CreatedAt: new Date().toISOString(),
-      UpdatedAt: new Date().toISOString(),
-    }));
+    // Fetch ImageUrls from dishes table
+    const dishIds = dishes.map(d => d.dishId);
+    const { data: dbDishes, error: dishFetchError } = await supabase
+      .from('dishes')
+      .select('DishId, ImageUrls')
+      .in('DishId', dishIds);
+
+    if (dishFetchError) {
+      // Rollback
+      await supabase.from('chefProfiles').delete().eq('ChefId', userId);
+      await supabase.from('users').delete().eq('Id', userId);
+      throw new Error(`DISH_FETCH:${dishFetchError.message}`);
+    }
+
+    const dishInfoMap = (dbDishes || []).reduce((acc, d) => {
+      acc[d.DishId] = d;
+      return acc;
+    }, {});
+
+    const dishMappings = dishes.map((d) => {
+      const dbDish = dishInfoMap[d.dishId];
+      let selectedImage = null;
+
+      // Randomly select an image URL if available
+      if (dbDish && dbDish.ImageUrls && Array.isArray(dbDish.ImageUrls) && dbDish.ImageUrls.length > 0) {
+        const randomIndex = Math.floor(Math.random() * dbDish.ImageUrls.length);
+        selectedImage = dbDish.ImageUrls[randomIndex];
+      }
+
+      return {
+        ChefId: userId,
+        DishId: d.dishId,
+        BasePricePerPerson: parseFloat(d.price) || 0,
+        IsSpecial: d.isSpecial || false,
+        ImageUrl: selectedImage,
+        CreatedAt: new Date().toISOString(),
+        UpdatedAt: new Date().toISOString(),
+      };
+    });
 
     const { error: dishMapError } = await supabase
       .from('dishMapChef')
@@ -200,7 +231,8 @@ export const getChefPublicProfileService = async (chefId) => {
     .select(`
       DishId,
       BasePricePerPerson,
-      IsSpecial
+      IsSpecial,
+      ImageUrl
     `)
     .eq('ChefId', chefId);
 
@@ -212,7 +244,7 @@ export const getChefPublicProfileService = async (chefId) => {
 
     const { data: dishesData, error: dishesError } = await supabase
       .from('dishes')
-      .select('DishId, Name, Description, Ingredients, IsVegetarian')
+      .select('DishId, Name, Description, Ingredients, IsVegetarian, Quantity')
       .in('DishId', dishIds);
 
     if (dishesError) throw new Error(dishesError.message);

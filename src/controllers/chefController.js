@@ -51,7 +51,7 @@ export const registerChef = async (req, res) => {
     });
   } catch (err) {
     console.error('Chef registration error:', err);
-    return res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
@@ -184,14 +184,27 @@ export const getChefPublicProfile = async (req, res) => {
       image: profile.ProfileUrl?.image || "https://images.unsplash.com/photo-1577219491136-5dd90d9779df?q=80&w=300&auto=format&fit=crop",
       about: profile.About || "",
       specialDishes: profile.ProfileUrl?.specialDishes || [],
-      dishes: menuData.map(m => ({
-        id: m.DishId, // using DishId for consistency, or generate unique if needed
-        name: m.dishes?.Name,
-        pricePer100g: m.BasePricePerPerson, // Mapping DB BasePrice to frontend 'pricePer100g' terminology
-        ingredients: m.dishes?.Ingredients || [], // Assuming JSON structure matches {name, quantity, unit}
-        isSpecial: m.IsSpecial,
-        description: m.dishes?.Description
-      }))
+      dishes: menuData.map(m => {
+        // Transform Google Drive URLs to reliable CDN view links
+        let imageUrl = m.ImageUrl;
+        if (imageUrl && imageUrl.includes('drive.google.com') && imageUrl.includes('id=')) {
+          const idMatch = imageUrl.match(/id=([^&]+)/);
+          if (idMatch && idMatch[1]) {
+            imageUrl = `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+          }
+        }
+
+        return {
+          id: m.DishId,
+          name: m.dishes?.Name,
+          pricePer100g: m.BasePricePerPerson,
+          ingredients: m.dishes?.Ingredients || [],
+          image: imageUrl,
+          isSpecial: m.IsSpecial,
+          description: m.dishes?.Description,
+          quantity: m.dishes?.Quantity || 0
+        };
+      })
     };
 
     res.json(response);
