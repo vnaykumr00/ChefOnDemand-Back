@@ -141,6 +141,7 @@ export async function getNearbyChefs({ lat, lng, limit, maxDistance, searchQuery
           }
 
           matchedDish = {
+            id: found.DishId, // CRITICAL for frontend matching
             name: searchQuery, // Using search query as label for now, or could fetch real name
             image: img,
             price: found.BasePricePerPerson
