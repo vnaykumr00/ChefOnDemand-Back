@@ -33,15 +33,28 @@ export async function registerUser(payload) {
   return { data: normalizeUser(data), error };
 }
 
-export async function getNearbyChefs({ lat, lng, limit, maxDistance }) {
-  // 1. Fetch nearby availability
-  const { data, error } = await supabase
+export async function getNearbyChefs({ lat, lng, limit, maxDistance, searchQuery, searchType }) {
+  // 1. Pre-fetch Dish IDs if searching by Dish
+  let matchingDishIds = null;
+  if (searchQuery && searchType === 'Dish') {
+    const { data: dishes } = await supabase
+      .from('dishes')
+      .select('DishId')
+      .ilike('Name', `%${searchQuery}%`);
+
+    if (dishes) {
+      matchingDishIds = new Set(dishes.map(d => d.DishId));
+    }
+  }
+
+  // 2. Start building the query
+  let query = supabase
     .from("chefAvailability")
     .select(`
       ChefId,
       LocLat,
       LocLng,
-      users (
+      users!inner (
         Id,
         Name,
         Phone,
@@ -52,11 +65,20 @@ export async function getNearbyChefs({ lat, lng, limit, maxDistance }) {
           About
         ),
         dishMapChef (
+          DishId,
           ImageUrl,
-          IsSpecial
+          IsSpecial,
+          BasePricePerPerson
         )
       )
     `);
+
+  // Apply Search Filters (Chef Name)
+  if (searchQuery && searchType === 'Chef') {
+    query = query.ilike('users.Name', `%${searchQuery}%`);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
 
@@ -103,6 +125,29 @@ export async function getNearbyChefs({ lat, lng, limit, maxDistance }) {
 
       // Extract Dish Images
       const rawDishes = row.users?.dishMapChef || [];
+
+      // Matched Dish Logic
+      let matchedDish = null;
+      if (searchType === 'Dish' && matchingDishIds) {
+        const found = rawDishes.find(d => matchingDishIds.has(d.DishId));
+        if (found) {
+          let img = found.ImageUrl;
+          // Transform Google Drive URLs
+          if (img && img.includes('drive.google.com') && img.includes('id=')) {
+            const idMatch = img.match(/id=([^&]+)/);
+            if (idMatch && idMatch[1]) {
+              img = `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+            }
+          }
+
+          matchedDish = {
+            name: searchQuery, // Using search query as label for now, or could fetch real name
+            image: img,
+            price: found.BasePricePerPerson
+          };
+        }
+      }
+
       // Prefer Special dishes images first, then others
       const dishImages = rawDishes
         .filter(d => d.ImageUrl)
@@ -128,10 +173,33 @@ export async function getNearbyChefs({ lat, lng, limit, maxDistance }) {
         rating: profile.Rating || 0,
         about: profile.About || "",
         image: profile.ProfileUrl?.image || (dishImages.length > 0 ? dishImages[0] : "https://images.unsplash.com/photo-1577219491136-5dd90d9779df?q=80&w=300&auto=format&fit=crop"),
-        specialDishes: dishImages.length > 0 ? dishImages : (profile.ProfileUrl?.specialDishes || [])
+        specialDishes: dishImages.length > 0 ? dishImages : (profile.ProfileUrl?.specialDishes || []),
+        matchedDish, // Include the matched dish details
+        // Helper for filtering
+        hasDish: searchType === 'Dish' && matchingDishIds
+          ? rawDishes.some(d => matchingDishIds.has(d.DishId))
+          : true
       };
     })
-    .filter((r) => !maxDistKm || r.distanceKm <= maxDistKm)
+    .filter((r) => {
+      // Distance filter
+      if (maxDistKm && r.distanceKm > maxDistKm) return false;
+
+      // Dish Search Filter
+      if (searchType === 'Dish' && searchQuery) {
+        return r.hasDish;
+      }
+
+      return true;
+    })
     .sort((a, b) => a.distanceKm - b.distanceKm)
     .slice(0, limit);
+}
+
+export async function getSearchHints(searchTerm) {
+  const { data, error } = await supabase
+    .rpc('get_search_hints', { search_term: searchTerm });
+
+  if (error) throw error;
+  return data;
 }

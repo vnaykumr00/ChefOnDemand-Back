@@ -1,12 +1,13 @@
 import express from "express";
 
-import {verifySupabaseToken} from "../middleware/auth.middleware.js";
+import { verifySupabaseToken } from "../middleware/auth.middleware.js";
 import {
   login,
   register,
   me,
   status,
   nearbyChefs,
+  getSearchHintsController
 } from "../controllers/userController.js";
 
 const router = express.Router();
@@ -19,5 +20,6 @@ router.post("/register", verifySupabaseToken, register);
 router.get("/me", verifySupabaseToken, me);
 router.get("/status", verifySupabaseToken, status);
 router.get("/nearbyChefs", verifySupabaseToken, nearbyChefs);
+router.get("/search/hints", verifySupabaseToken, getSearchHintsController);
 
 export default router;

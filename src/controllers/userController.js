@@ -2,6 +2,7 @@ import {
   findUserById,
   registerUser,
   getNearbyChefs,
+  getSearchHints
 } from "../services/userService.js";
 
 export async function login(req, res) {
@@ -75,13 +76,30 @@ export async function status(req, res) {
   }
 }
 
+export async function getSearchHintsController(req, res) {
+  try {
+    const { query } = req.query;
+    if (!query || query.length < 2) return res.json([]); // Min 2 chars
+
+    const hints = await getSearchHints(query);
+    res.json(hints);
+  } catch (e) {
+    console.error("Error in searchHints:", e);
+    res.status(500).json({ message: "Server error", error: e.message });
+  }
+}
+
 export async function nearbyChefs(req, res) {
   try {
+    const { search, type } = req.query;
+
     const chefs = await getNearbyChefs({
       lat: 16.68424150,
       lng: 74.25901480,
       limit: 20,
       maxDistance: 5000000000,
+      searchQuery: search,
+      searchType: type
     });
 
     res.json({ nearbyChefs: chefs, totalFound: chefs.length });
