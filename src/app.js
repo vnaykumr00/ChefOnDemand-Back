@@ -7,6 +7,8 @@ import dishRoutes from "./routes/dishRoutes.js";
 import cuisinesRoutes from './routes/cuisineRoute.js';
 import chefsRoutes from './routes/chefRoutes.js';
 
+import bookingRoutes from './routes/bookingRoutes.js';
+
 const app = express();
 
 app.use(cors());
@@ -19,6 +21,9 @@ app.use('/user', users);
 app.use('/chef', chefsRoutes);
 app.use('/dishes', dishRoutes);
 app.use('/cuisines', cuisinesRoutes);
+app.use('/booking', bookingRoutes); // Changed to match frontend request if it was /bookings, wait. 
+// actually I want to change it TO /bookings
+app.use('/bookings', bookingRoutes);
 
 // Public Routes
 app.get("/", (req, res) => {

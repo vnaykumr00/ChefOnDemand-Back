@@ -1,0 +1,60 @@
+
+import bookingService from '../services/bookingService.js';
+
+const createBooking = async (req, res) => {
+    try {
+        const { customerId, chefId, serviceDate, location, totalAmount, dishIds } = req.body;
+
+        if (!customerId || !chefId || !serviceDate || !totalAmount) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const newBooking = await bookingService.createBooking({
+            CustomerId: customerId,
+            ChefId: chefId,
+            ServiceDate: serviceDate,
+            Location: location, // Should be JSON object
+            TotalAmount: totalAmount,
+            DishIds: dishIds // Should be JSON array/object
+        });
+
+        res.status(201).json(newBooking);
+    } catch (error) {
+        console.error('Error creating booking:', error);
+        res.status(500).json({ error: 'Failed to create booking' });
+    }
+};
+
+const getChefBookings = async (req, res) => {
+    try {
+        const { chefId } = req.params;
+        const bookings = await bookingService.getBookingsByChefId(chefId);
+        res.json(bookings);
+    } catch (error) {
+        console.error('Error fetching chef bookings:', error);
+        res.status(500).json({ error: 'Failed to fetch bookings' });
+    }
+};
+
+const updateBookingStatus = async (req, res) => {
+    try {
+        const { bookingId } = req.params;
+        const { status } = req.body;
+
+        if (!['pending', 'confirmed', 'cancelled', 'completed'].includes(status)) {
+            return res.status(400).json({ error: 'Invalid status' });
+        }
+
+        const updatedBooking = await bookingService.updateBookingStatus(bookingId, status);
+        res.json(updatedBooking);
+    } catch (error) {
+        console.error('Error updating booking status:', error);
+        res.status(500).json({ error: 'Failed to update booking status' });
+    }
+};
+
+export default {
+    createBooking,
+    getChefBookings,
+    updateBookingStatus
+};
