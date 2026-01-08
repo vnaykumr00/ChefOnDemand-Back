@@ -53,8 +53,31 @@ const updateBookingStatus = async (req, res) => {
     }
 };
 
+
+const getCustomerBookings = async (req, res) => {
+    try {
+        const { customerId } = req.params;
+        const bookings = await bookingService.getBookingsByCustomerId(customerId);
+        res.json(bookings);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+const getBookingById = async (req, res) => {
+    try {
+        const { bookingId } = req.params;
+        const booking = await bookingService.getBookingById(bookingId);
+        res.json(booking);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 export default {
     createBooking,
     getChefBookings,
+    getCustomerBookings,
+    getBookingById,
     updateBookingStatus
 };

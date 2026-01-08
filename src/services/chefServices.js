@@ -151,10 +151,34 @@ export const getChefProfileService = async (chefId) => {
     .eq('ChefId', chefId)
     .single();
 
-  const { data: dishes } = await supabase
+  const { data: menuMapData, error: menuMapError } = await supabase
     .from('dishMapChef')
-    .select('*, dishes(*)')
+    .select('*')
     .eq('ChefId', chefId);
+
+  if (menuMapError) throw new Error(menuMapError.message);
+
+  let dishes = [];
+  if (menuMapData && menuMapData.length > 0) {
+    const dishIds = menuMapData.map(d => d.DishId);
+
+    const { data: dishesData, error: dishesError } = await supabase
+      .from('dishes')
+      .select('*')
+      .in('DishId', dishIds);
+
+    if (dishesError) throw new Error(dishesError.message);
+
+    const dishMap = (dishesData || []).reduce((acc, d) => {
+      acc[d.DishId] = d;
+      return acc;
+    }, {});
+
+    dishes = menuMapData.map(item => ({
+      ...item,
+      dishes: dishMap[item.DishId] || {}
+    }));
+  }
 
   return { userData, chefProfile, dishes };
 };

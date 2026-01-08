@@ -97,7 +97,28 @@ export const getChefProfile = async (req, res) => {
         rating: chefProfile.Rating,
         totalBookings: chefProfile.TotalBookings,
         responseRate: chefProfile.ResponseRate,
-        dishes: dishes || [],
+        dishes: (dishes || []).map(m => {
+          let imageUrl = m.ImageUrl;
+          if (imageUrl && imageUrl.includes('drive.google.com') && imageUrl.includes('id=')) {
+            const idMatch = imageUrl.match(/id=([^&]+)/);
+            if (idMatch && idMatch[1]) {
+              imageUrl = `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+            }
+          }
+
+          return {
+            id: m.DishId,
+            name: m.dishes?.Name,
+            pricePer100g: m.BasePricePerPerson,
+            ingredients: m.dishes?.Ingredients || [],
+            imageUrl: imageUrl, // Frontend uses imageUrl
+            isSpecial: m.IsSpecial,
+            description: m.dishes?.Description,
+            prepTimeMinutes: m.dishes?.PrepTimeMinutes,
+            cuisineId: m.dishes?.CuisineId,
+            isVegetarian: m.dishes?.IsVegetarian
+          };
+        }),
       },
     });
   } catch (err) {
