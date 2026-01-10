@@ -80,11 +80,7 @@ export async function getNearbyChefs({ lat, lng, limit, maxDistance, searchQuery
 
   const { data, error } = await query;
 
-  if (error) {
-    console.error("Supabase Query Error:", error);
-    throw error;
-  }
-  console.log("Raw Nearby Chefs Data:", JSON.stringify(data, null, 2));
+  if (error) throw error;
 
   // 2. Fetch all cuisines for mapping
   const { data: cuisinesData, error: cuisineError } = await supabase
