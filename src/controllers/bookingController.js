@@ -3,7 +3,10 @@ import bookingService from '../services/bookingService.js';
 
 const createBooking = async (req, res) => {
     try {
-        const { customerId, chefId, serviceDate, location, totalAmount, dishIds } = req.body;
+        const {
+            customerId, chefId, serviceDate, location,
+            totalAmount, dishIds, pricingDetails
+        } = req.body;
 
         if (!customerId || !chefId || !serviceDate || !totalAmount) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -15,7 +18,9 @@ const createBooking = async (req, res) => {
             ServiceDate: serviceDate,
             Location: location, // Should be JSON object
             TotalAmount: totalAmount,
-            DishIds: dishIds // Should be JSON array/object
+            DishIds: dishIds, // Should be JSON array/object
+            PricingDetails: pricingDetails || {}, // Store breakdown
+            Status: 'ORDER_PLACED' // Explicitly set initial status
         });
 
         res.status(201).json(newBooking);
@@ -39,17 +44,25 @@ const getChefBookings = async (req, res) => {
 const updateBookingStatus = async (req, res) => {
     try {
         const { bookingId } = req.params;
-        const { status } = req.body;
+        const { status, otp } = req.body;
 
-        if (!['pending', 'confirmed', 'cancelled', 'completed'].includes(status)) {
+        const allowedStatuses = [
+            'pending', 'confirmed', 'cancelled', 'completed', // Legacy
+            'ORDER_PLACED', 'CHEF_ACCEPTED', 'CHEF_ARRIVED',
+            'INGREDIENTS_VERIFIED', 'ORDER_RECONFIRMED',
+            'PAYMENT_COMPLETED', 'COOKING_STARTED',
+            'COOKING_COMPLETED', 'ORDER_COMPLETED'
+        ];
+
+        if (!allowedStatuses.includes(status)) {
             return res.status(400).json({ error: 'Invalid status' });
         }
 
-        const updatedBooking = await bookingService.updateBookingStatus(bookingId, status);
+        const updatedBooking = await bookingService.updateBookingStatus(bookingId, status, otp);
         res.json(updatedBooking);
     } catch (error) {
         console.error('Error updating booking status:', error);
-        res.status(500).json({ error: 'Failed to update booking status' });
+        res.status(500).json({ error: error.message || 'Failed to update booking status' });
     }
 };
 

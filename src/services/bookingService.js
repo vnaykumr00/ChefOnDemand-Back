@@ -31,10 +31,53 @@ const getBookingsByChefId = async (chefId) => {
     return data;
 };
 
-const updateBookingStatus = async (bookingId, status) => {
+const updateBookingStatus = async (bookingId, status, otp = null) => {
+    // 1. Fetch current booking to get current status and history
+    const { data: currentBooking, error: fetchError } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('Id', bookingId)
+        .single();
+
+    if (fetchError) throw new Error(fetchError.message);
+
+    const updates = { Status: status };
+    let history = currentBooking.StatusHistory || [];
+
+    // Append new status event
+    history.push({
+        status,
+        timestamp: new Date().toISOString()
+    });
+    updates.StatusHistory = history;
+
+    // 2. Logic for specific transitions
+
+    // Generate OTP when Payment is Completed (To be shared with Chef upon arrival)
+    if (status === 'PAYMENT_COMPLETED') {
+        const code = Math.floor(1000 + Math.random() * 9000).toString();
+        updates.VerificationCode = code;
+    }
+
+    // Verify OTP when Ingredients are Verified
+    if (status === 'INGREDIENTS_VERIFIED') {
+        if (!otp) throw new Error('OTP is required for verification');
+        if (String(currentBooking.VerificationCode).trim() !== String(otp).trim()) {
+            throw new Error('Invalid OTP');
+        }
+    }
+
+    // Verify OTP when Reconfirming Order (Legacy support)
+    if (status === 'ORDER_RECONFIRMED') {
+        if (!otp) throw new Error('OTP is required for reconfirmation');
+        if (String(currentBooking.VerificationCode).trim() !== String(otp).trim()) {
+            throw new Error('Invalid OTP');
+        }
+    }
+
     const { data, error } = await supabase
         .from('bookings')
-        .update({ Status: status })
+        .update(updates)
         .eq('Id', bookingId)
         .select()
         .single();
@@ -75,23 +118,36 @@ const getBookingsByCustomerId = async (customerId) => {
         if (allDishIds.size > 0) {
             const { data: dishes } = await supabase
                 .from('dishes')
-                .select('DishId, Name')
+                .select('DishId, Name, ImageUrls')
                 .in('DishId', Array.from(allDishIds));
 
-            // Create a map of dish id to name
+            // Create a map of dish id to details
             const dishMap = {};
             if (dishes) {
                 dishes.forEach(dish => {
-                    dishMap[dish.DishId] = dish.Name;
+                    // Extract first image from ImageUrls array
+                    let imageUrl = (Array.isArray(dish.ImageUrls) && dish.ImageUrls.length > 0)
+                        ? dish.ImageUrls[0]
+                        : null;
+
+                    // Transform Google Drive URLs to reliable CDN view links
+                    if (imageUrl && imageUrl.includes('drive.google.com') && imageUrl.includes('id=')) {
+                        const idMatch = imageUrl.match(/id=([^\&]+)/);
+                        if (idMatch && idMatch[1]) {
+                            imageUrl = `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+                        }
+                    }
+                    dishMap[dish.DishId.toString()] = { name: dish.Name, image: imageUrl };
                 });
             }
 
-            // Enrich each booking's DishIds with names
+            // Enrich each booking's DishIds with names and images
             data.forEach(booking => {
                 if (booking.DishIds && Array.isArray(booking.DishIds)) {
                     booking.DishIds = booking.DishIds.map(dish => ({
                         ...dish,
-                        name: dishMap[dish.id] || 'Unknown Dish'
+                        name: dishMap[dish.id.toString()]?.name || 'Unknown Dish',
+                        image: dishMap[dish.id.toString()]?.image || null
                     }));
                 }
             });

@@ -1,5 +1,13 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import app from "./app.js";
 import { supabase } from "./config/supabase.js";
+
+// Debug logs for environment variables (safe check)
+console.log("📝 Environment Check:");
+console.log("- RAZORPAY_KEY_ID:", process.env.RAZORPAY_KEY_ID ? "✅ Found" : "❌ Missing");
+console.log("- RAZORPAY_KEY_SECRET:", process.env.RAZORPAY_KEY_SECRET ? "✅ Found" : "❌ Missing");
 
 const PORT = process.env.PORT || 5000;
 
@@ -9,7 +17,7 @@ app.listen(PORT, async () => {
   try {
     // We just "peek" at the chefAvailability table to see if we can talk to it
     const { data, error } = await supabase
-      .from('chefAvailability') 
+      .from('chefAvailability')
       .select('count', { count: 'exact', head: true });
 
     if (error) throw error;

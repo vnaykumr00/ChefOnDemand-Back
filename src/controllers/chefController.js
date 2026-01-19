@@ -202,7 +202,7 @@ export const getChefPublicProfile = async (req, res) => {
       rating: profile.Rating || 0,
       distance: "Calculating...", // You might want frontend to calculate or pass lat/long in query to calc here. Fore now placeholder.
       location: { lat: avail.LocLat, lng: avail.LocLng }, // Frontend can calc distance
-      image: profile.ProfileUrl?.image || "https://images.unsplash.com/photo-1577219491136-5dd90d9779df?q=80&w=300&auto=format&fit=crop",
+      image: profile.ProfileUrl?.image || null,
       about: profile.About || "",
       specialDishes: profile.ProfileUrl?.specialDishes || [],
       dishes: menuData.map(m => {
