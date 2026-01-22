@@ -69,6 +69,7 @@ export const getRegistrationDishes = async (req, res) => {
         cuisineId: dish.CuisineId,
         isVegetarian: dish.IsVegetarian,
         ingredients: dish.Ingredients,
+        images: dish.ImageUrls,
       })),
     });
   } catch (err) {
@@ -98,25 +99,18 @@ export const getChefProfile = async (req, res) => {
         totalBookings: chefProfile.TotalBookings,
         responseRate: chefProfile.ResponseRate,
         dishes: (dishes || []).map(m => {
-          let imageUrl = m.ImageUrl;
-          if (imageUrl && imageUrl.includes('drive.google.com') && imageUrl.includes('id=')) {
-            const idMatch = imageUrl.match(/id=([^&]+)/);
-            if (idMatch && idMatch[1]) {
-              imageUrl = `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
-            }
-          }
-
           return {
             id: m.DishId,
             name: m.dishes?.Name,
             pricePer100g: m.BasePricePerPerson,
             ingredients: m.dishes?.Ingredients || [],
-            imageUrl: imageUrl, // Frontend uses imageUrl
+            imageUrl: m.ImageUrl, // Frontend uses imageUrl
             isSpecial: m.IsSpecial,
             description: m.dishes?.Description,
             prepTimeMinutes: m.dishes?.PrepTimeMinutes,
             cuisineId: m.dishes?.CuisineId,
-            isVegetarian: m.dishes?.IsVegetarian
+            isVegetarian: m.dishes?.IsVegetarian,
+            quantity: m.dishes?.Quantity || 0
           };
         }),
       },
@@ -206,21 +200,12 @@ export const getChefPublicProfile = async (req, res) => {
       about: profile.About || "",
       specialDishes: profile.ProfileUrl?.specialDishes || [],
       dishes: menuData.map(m => {
-        // Transform Google Drive URLs to reliable CDN view links
-        let imageUrl = m.ImageUrl;
-        if (imageUrl && imageUrl.includes('drive.google.com') && imageUrl.includes('id=')) {
-          const idMatch = imageUrl.match(/id=([^&]+)/);
-          if (idMatch && idMatch[1]) {
-            imageUrl = `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
-          }
-        }
-
         return {
           id: m.DishId,
           name: m.dishes?.Name,
           pricePer100g: m.BasePricePerPerson,
           ingredients: m.dishes?.Ingredients || [],
-          image: imageUrl,
+          image: m.ImageUrl,
           isSpecial: m.IsSpecial,
           description: m.dishes?.Description,
           quantity: m.dishes?.Quantity || 0

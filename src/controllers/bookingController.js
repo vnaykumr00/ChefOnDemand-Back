@@ -87,10 +87,44 @@ const getBookingById = async (req, res) => {
     }
 };
 
+const reportIssue = async (req, res) => {
+    try {
+        const { bookingId } = req.params;
+        const { description } = req.body;
+
+        if (!description) {
+            return res.status(400).json({ error: 'Description is required' });
+        }
+
+        // Fetch booking to get customer and chef IDs
+        const booking = await bookingService.getBookingById(bookingId);
+        if (!booking) {
+            return res.status(404).json({ error: 'Booking not found' });
+        }
+
+        const issue = await bookingService.createReportedIssue({
+            BookingId: bookingId,
+            CustomerId: booking.CustomerId,
+            ChefId: booking.ChefId,
+            IssueDescription: description,
+            Status: 'OPEN'
+        });
+
+        // Update booking status to cancelled as per user request
+        await bookingService.updateBookingStatus(bookingId, 'cancelled');
+
+        res.status(201).json(issue);
+    } catch (error) {
+        console.error('Error reporting issue:', error);
+        res.status(500).json({ error: 'Failed to report issue' });
+    }
+};
+
 export default {
     createBooking,
     getChefBookings,
     getCustomerBookings,
     getBookingById,
-    updateBookingStatus
+    updateBookingStatus,
+    reportIssue
 };

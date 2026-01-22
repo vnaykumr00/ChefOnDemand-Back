@@ -3,8 +3,11 @@ import {
   fetchDishById,
   createNewDish,
   updateExistingDish,
-  deleteDishById
+  deleteDishById,
+  updateChefDishService,
+  createProposedDishService
 } from '../services/dishServices.js';
+import { findUserById } from '../services/userService.js';
 
 export const getAllDishes = async (req, res) => {
   try {
@@ -20,6 +23,7 @@ export const getAllDishes = async (req, res) => {
         cuisineId: dish.CuisineId,
         isVegetarian: dish.IsVegetarian,
         ingredients: dish.Ingredients,
+        images: dish.ImageUrls,
       })),
     });
   } catch (err) {
@@ -60,11 +64,29 @@ export const getDishById = async (req, res) => {
 export const createDish = async (req, res) => {
   try {
     const dishData = req.body;
+    const { id: userId } = req.user;
+
+    // 1. Get user role
+    const { data: user, error: userError } = await findUserById(userId);
+    if (userError || !user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // 2. If chef, propose dish
+    if (user.role === 'chef') {
+      const result = await createProposedDishService(userId, dishData, req.file);
+      return res.status(201).json({
+        message: 'Dish proposal submitted for approval',
+        proposedDish: result
+      });
+    }
+
+    // 3. Admin or default creation
     const newDish = await createNewDish(dishData);
     res.status(201).json(newDish);
   } catch (err) {
     console.error('Create dish error:', err);
-    res.status(500).json({ message: 'Failed to create dish' });
+    res.status(500).json({ message: err.message || 'Failed to create dish' });
   }
 };
 
@@ -72,11 +94,27 @@ export const updateDish = async (req, res) => {
   try {
     const { dishId } = req.params;
     const updates = req.body;
+    const { id: userId } = req.user;
+
+    // 1. Get user role from DB
+    const { data: user, error: userError } = await findUserById(userId);
+    if (userError || !user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // 2. Handle update based on role
+    if (user.role === 'chef') {
+      console.log('Updating chef dish:', { dishId, userId, file: req.file ? { mimetype: req.file.mimetype, size: req.file.size } : 'no file' });
+      const result = await updateChefDishService(dishId, userId, updates, req.file);
+      return res.json({ message: 'Dish updated successfully', imageUrl: result.imageUrl });
+    }
+
+    // 3. Admin or default update for global dishes
     const updatedDish = await updateExistingDish(dishId, updates);
     res.json(updatedDish);
   } catch (err) {
     console.error('Update dish error:', err);
-    res.status(500).json({ message: 'Failed to update dish' });
+    res.status(500).json({ message: err.message || 'Failed to update dish' });
   }
 };
 

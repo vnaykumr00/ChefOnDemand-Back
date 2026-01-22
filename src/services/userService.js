@@ -130,39 +130,19 @@ export async function getNearbyChefs({ lat, lng, limit, maxDistance, searchQuery
       let matchedDish = null;
       if (searchType === 'Dish' && matchingDishIds) {
         const found = rawDishes.find(d => matchingDishIds.has(d.DishId));
-        if (found) {
-          let img = found.ImageUrl;
-          // Transform Google Drive URLs
-          if (img && img.includes('drive.google.com') && img.includes('id=')) {
-            const idMatch = img.match(/id=([^&]+)/);
-            if (idMatch && idMatch[1]) {
-              img = `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
-            }
-          }
-
-          matchedDish = {
-            id: found.DishId, // CRITICAL for frontend matching
-            name: searchQuery, // Using search query as label for now, or could fetch real name
-            image: img,
-            price: found.BasePricePerPerson
-          };
-        }
+        matchedDish = {
+          id: found.DishId, // CRITICAL for frontend matching
+          name: searchQuery, // Using search query as label for now, or could fetch real name
+          image: found.ImageUrl,
+          price: found.BasePricePerPerson
+        };
       }
 
       // Prefer Special dishes images first, then others
       const dishImages = rawDishes
         .filter(d => d.ImageUrl)
         .sort((a, b) => (b.IsSpecial === true ? 1 : 0) - (a.IsSpecial === true ? 1 : 0))
-        .map(d => {
-          // Transform Google Drive URLs to reliable CDN view links
-          if (d.ImageUrl.includes('drive.google.com') && d.ImageUrl.includes('id=')) {
-            const idMatch = d.ImageUrl.match(/id=([^&]+)/);
-            if (idMatch && idMatch[1]) {
-              return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
-            }
-          }
-          return d.ImageUrl;
-        });
+        .map(d => d.ImageUrl);
 
       return {
         id: row.ChefId,

@@ -130,13 +130,6 @@ const getBookingsByCustomerId = async (customerId) => {
                         ? dish.ImageUrls[0]
                         : null;
 
-                    // Transform Google Drive URLs to reliable CDN view links
-                    if (imageUrl && imageUrl.includes('drive.google.com') && imageUrl.includes('id=')) {
-                        const idMatch = imageUrl.match(/id=([^\&]+)/);
-                        if (idMatch && idMatch[1]) {
-                            imageUrl = `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
-                        }
-                    }
                     dishMap[dish.DishId.toString()] = { name: dish.Name, image: imageUrl };
                 });
             }
@@ -171,6 +164,48 @@ const getBookingById = async (bookingId) => {
     if (error) {
         throw new Error(error.message);
     }
+
+    // Enrich DishIds with dish names and images
+    if (data && data.DishIds && Array.isArray(data.DishIds)) {
+        const dishIds = data.DishIds.map(dish => dish.id);
+        if (dishIds.length > 0) {
+            const { data: dishes } = await supabase
+                .from('dishes')
+                .select('DishId, Name, ImageUrls')
+                .in('DishId', dishIds);
+
+            if (dishes) {
+                const dishMap = {};
+                dishes.forEach(dish => {
+                    let imageUrl = (Array.isArray(dish.ImageUrls) && dish.ImageUrls.length > 0)
+                        ? dish.ImageUrls[0]
+                        : null;
+
+                    dishMap[dish.DishId.toString()] = { name: dish.Name, image: imageUrl };
+                });
+
+                data.DishIds = data.DishIds.map(dish => ({
+                    ...dish,
+                    name: dishMap[dish.id.toString()]?.name || 'Unknown Dish',
+                    image: dishMap[dish.id.toString()]?.image || null
+                }));
+            }
+        }
+    }
+
+    return data;
+};
+
+const createReportedIssue = async (issueData) => {
+    const { data, error } = await supabase
+        .from('reported_issues')
+        .insert([issueData])
+        .select()
+        .single();
+
+    if (error) {
+        throw new Error(error.message);
+    }
     return data;
 };
 
@@ -179,5 +214,6 @@ export default {
     getBookingsByChefId,
     getBookingsByCustomerId,
     getBookingById,
-    updateBookingStatus
+    updateBookingStatus,
+    createReportedIssue
 };
