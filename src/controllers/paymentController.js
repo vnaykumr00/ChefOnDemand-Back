@@ -20,7 +20,7 @@ const getRazorpayInstance = () => {
 export const createOrder = async (req, res) => {
     try {
         const { amount, bookingId } = req.body;
-
+        console.log(`📦 Creating order: Amount=${amount}, BookingId=${bookingId}`);
 
         const razorpay = getRazorpayInstance();
         if (!razorpay) throw new Error('Razorpay keys not configured');
@@ -61,7 +61,7 @@ export const verifyPayment = async (req, res) => {
             // Note: In production, verify amount against order ID. 
         } = req.body;
 
-
+        console.log(`🔍 Verifying Payment: OrderId=${razorpay_order_id}, PaymentId=${razorpay_payment_id}, BookingId=${bookingId}`);
 
         const sign = razorpay_order_id + "|" + razorpay_payment_id;
         const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -76,7 +76,7 @@ export const verifyPayment = async (req, res) => {
             .digest("hex");
 
         if (razorpay_signature === expectedSign) {
-
+            console.log('✅ Payment signature verified');
 
             // 1. Create Transaction Record
             const { error: transError } = await supabase

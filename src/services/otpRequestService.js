@@ -15,7 +15,7 @@ export const sendOtpService = async (phoneNumber) => {
     const cleanPhone = phoneNumber.replace(/\+/g, '').replace(/^91/, '');
     const phoneForApi = cleanPhone.slice(-10);
 
-
+    console.log(`Sending OTP ${otp} to ${phoneForApi}`);
 
     // 2. Call 2factor.in API
     if (TWO_FACTOR_API_KEY) {
@@ -27,7 +27,7 @@ export const sendOtpService = async (phoneNumber) => {
             // Append Sender ID
             const url = `${baseUrl}?from=${SENDER_ID}`;
 
-
+            console.log("Calling 2factor URL:", url.replace(TWO_FACTOR_API_KEY, '***'));
 
             const response = await axios.get(url);
 
@@ -36,7 +36,7 @@ export const sendOtpService = async (phoneNumber) => {
                 throw new Error('2factor Error: ' + response.data.Details);
             }
 
-
+            console.log('2factor Response:', response.data);
         } catch (apiError) {
             console.error('2factor.in API Error:', apiError.message);
             throw new Error(apiError.message || 'Failed to send SMS via provider');

@@ -112,7 +112,7 @@ export const updateDish = async (req, res) => {
 
     // 2. Handle update based on role
     if (user.role === 'chef') {
-
+      console.log('Updating chef dish:', { dishId, userId, file: req.file ? { mimetype: req.file.mimetype, size: req.file.size } : 'no file' });
       const result = await updateChefDishService(dishId, userId, updates, req.file);
       return res.json({ message: 'Dish updated successfully', imageUrl: result.imageUrl });
     }
