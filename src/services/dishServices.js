@@ -25,20 +25,20 @@ export const createProposedDishService = async (chefId, dishData, file) => {
     imageUrl = publicUrl;
   }
 
-  // 2. Insert into proposedDishes
+  // 2. Insert into proposeddishes
   const { data, error } = await supabase
-    .from('proposedDishes')
+    .from('proposeddishes')
     .insert([{
-      ChefId: chefId,
-      CuisineId: dishData.CuisineId,
-      Name: dishData.Name,
-      Description: dishData.Description,
-      Price: dishData.Price,
-      QuantityPerServing: dishData.QuantityPerServing,
-      ImageUrl: imageUrl,
-      Status: 'pending',
-      CreatedAt: new Date().toISOString(),
-      UpdatedAt: new Date().toISOString()
+      chefid: chefId,
+      cuisineid: dishData.CuisineId,
+      name: dishData.Name,
+      description: dishData.Description,
+      price: dishData.Price,
+      quantityperserving: dishData.QuantityPerServing,
+      imageurl: imageUrl,
+      status: 'pending',
+      createdat: new Date().toISOString(),
+      updatedat: new Date().toISOString()
     }])
     .select()
     .single();
@@ -146,6 +146,40 @@ export const updateChefDishService = async (dishId, chefId, updates, file) => {
   }
 
   return { success: true, imageUrl };
+};
+
+export const addExistingDishToChefService = async (chefId, dishId, price) => {
+  // 1. Fetch dish details to get image
+  const { data: dish, error: dishError } = await supabase
+    .from('dishes')
+    .select('ImageUrls')
+    .eq('DishId', dishId)
+    .single();
+
+  if (dishError) throw new Error(`Dish fetch failed: ${dishError.message}`);
+
+  let selectedImage = null;
+  if (dish.ImageUrls && Array.isArray(dish.ImageUrls) && dish.ImageUrls.length > 0) {
+    const randomIndex = Math.floor(Math.random() * dish.ImageUrls.length);
+    selectedImage = dish.ImageUrls[randomIndex];
+  }
+
+  // 2. Insert into dishMapChef
+  const { data, error } = await supabase
+    .from('dishMapChef')
+    .insert([{
+      ChefId: chefId,
+      DishId: dishId,
+      BasePricePerPerson: parseFloat(price) || 0,
+      ImageUrl: selectedImage,
+      CreatedAt: new Date().toISOString(),
+      UpdatedAt: new Date().toISOString(),
+    }])
+    .select()
+    .single();
+
+  if (error) throw new Error(`Add existing dish failed: ${error.message}`);
+  return data;
 };
 
 export const deleteDishById = async (dishId) => {

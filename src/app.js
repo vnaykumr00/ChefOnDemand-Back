@@ -10,6 +10,7 @@ import chefsRoutes from './routes/chefRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import pricingRoutes from './routes/pricingRoutes.js';
+import otpRoutes from './routes/otpRoutes.js';
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use('/booking', bookingRoutes); // Changed to match frontend request if it w
 app.use('/bookings', bookingRoutes);
 app.use('/payments', paymentRoutes);
 app.use('/pricing', pricingRoutes);
+app.use('/otp', otpRoutes);
 
 // Public Routes
 app.get("/", (req, res) => {

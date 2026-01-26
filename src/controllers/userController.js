@@ -2,7 +2,8 @@ import {
   findUserById,
   registerUser,
   getNearbyChefs,
-  getSearchHints
+  getSearchHints,
+  findUserByPhone
 } from "../services/userService.js";
 
 export async function login(req, res) {
@@ -20,6 +21,23 @@ export async function login(req, res) {
 
     res.json({ message: "Login successful", user: data });
   } catch {
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function checkPhone(req, res) {
+  try {
+    const { phone } = req.query;
+    if (!phone) return res.status(400).json({ message: "Phone number is required" });
+
+    const { data, error } = await findUserByPhone(phone);
+
+    if (error && error.code !== "PGRST116") {
+      return res.status(500).json({ message: "Database error" });
+    }
+
+    res.json({ exists: !!data });
+  } catch (e) {
     res.status(500).json({ message: "Server error" });
   }
 }

@@ -20,7 +20,7 @@ const getBookingsByChefId = async (chefId) => {
         .from('bookings')
         .select(`
             *,
-            users:CustomerId (Name, Email)
+            users:CustomerId (Name, Email, Phone)
         `)
         .eq('ChefId', chefId)
         .order('ServiceDate', { ascending: true });
@@ -28,6 +28,53 @@ const getBookingsByChefId = async (chefId) => {
     if (error) {
         throw new Error(error.message);
     }
+
+    // Enrich DishIds with dish names and images
+    if (data && data.length > 0) {
+        // Collect all unique dish IDs from all bookings
+        const allDishIds = new Set();
+        data.forEach(booking => {
+            if (booking.DishIds && Array.isArray(booking.DishIds)) {
+                booking.DishIds.forEach(dish => {
+                    if (dish.id) allDishIds.add(dish.id);
+                });
+            }
+        });
+
+        // Fetch all dish details in one query
+        if (allDishIds.size > 0) {
+            const { data: dishes } = await supabase
+                .from('dishes')
+                .select('DishId, Name, ImageUrls, Ingredients')
+                .in('DishId', Array.from(allDishIds));
+
+            // Create a map of dish id to details
+            const dishMap = {};
+            if (dishes) {
+                dishes.forEach(dish => {
+                    // Extract first image from ImageUrls array
+                    let imageUrl = (Array.isArray(dish.ImageUrls) && dish.ImageUrls.length > 0)
+                        ? dish.ImageUrls[0]
+                        : null;
+
+                    dishMap[dish.DishId.toString()] = { name: dish.Name, image: imageUrl, ingredients: dish.Ingredients };
+                });
+            }
+
+            // Enrich each booking's DishIds with names and images
+            data.forEach(booking => {
+                if (booking.DishIds && Array.isArray(booking.DishIds)) {
+                    booking.DishIds = booking.DishIds.map(dish => ({
+                        ...dish,
+                        name: dishMap[dish.id.toString()]?.name || 'Unknown Dish',
+                        image: dishMap[dish.id.toString()]?.image || null,
+                        ingredients: dishMap[dish.id.toString()]?.ingredients || []
+                    }));
+                }
+            });
+        }
+    }
+
     return data;
 };
 
@@ -118,7 +165,7 @@ const getBookingsByCustomerId = async (customerId) => {
         if (allDishIds.size > 0) {
             const { data: dishes } = await supabase
                 .from('dishes')
-                .select('DishId, Name, ImageUrls')
+                .select('DishId, Name, ImageUrls, Ingredients')
                 .in('DishId', Array.from(allDishIds));
 
             // Create a map of dish id to details
@@ -130,7 +177,7 @@ const getBookingsByCustomerId = async (customerId) => {
                         ? dish.ImageUrls[0]
                         : null;
 
-                    dishMap[dish.DishId.toString()] = { name: dish.Name, image: imageUrl };
+                    dishMap[dish.DishId.toString()] = { name: dish.Name, image: imageUrl, ingredients: dish.Ingredients };
                 });
             }
 
@@ -140,7 +187,8 @@ const getBookingsByCustomerId = async (customerId) => {
                     booking.DishIds = booking.DishIds.map(dish => ({
                         ...dish,
                         name: dishMap[dish.id.toString()]?.name || 'Unknown Dish',
-                        image: dishMap[dish.id.toString()]?.image || null
+                        image: dishMap[dish.id.toString()]?.image || null,
+                        ingredients: dishMap[dish.id.toString()]?.ingredients || []
                     }));
                 }
             });
@@ -155,8 +203,8 @@ const getBookingById = async (bookingId) => {
         .from('bookings')
         .select(`
             *,
-            chef:ChefId (Name, Email, chefProfiles(ProfileUrl)),
-            customer:CustomerId (Name, Email)
+            chef:ChefId (Name, Email, Phone, chefProfiles(ProfileUrl)),
+            customer:CustomerId (Name, Email, Phone)
         `)
         .eq('Id', bookingId)
         .single();
@@ -171,7 +219,7 @@ const getBookingById = async (bookingId) => {
         if (dishIds.length > 0) {
             const { data: dishes } = await supabase
                 .from('dishes')
-                .select('DishId, Name, ImageUrls')
+                .select('DishId, Name, ImageUrls, Ingredients')
                 .in('DishId', dishIds);
 
             if (dishes) {
@@ -181,13 +229,14 @@ const getBookingById = async (bookingId) => {
                         ? dish.ImageUrls[0]
                         : null;
 
-                    dishMap[dish.DishId.toString()] = { name: dish.Name, image: imageUrl };
+                    dishMap[dish.DishId.toString()] = { name: dish.Name, image: imageUrl, ingredients: dish.Ingredients };
                 });
 
                 data.DishIds = data.DishIds.map(dish => ({
                     ...dish,
                     name: dishMap[dish.id.toString()]?.name || 'Unknown Dish',
-                    image: dishMap[dish.id.toString()]?.image || null
+                    image: dishMap[dish.id.toString()]?.image || null,
+                    ingredients: dishMap[dish.id.toString()]?.ingredients || []
                 }));
             }
         }

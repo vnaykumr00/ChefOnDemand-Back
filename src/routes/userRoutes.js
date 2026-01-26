@@ -7,7 +7,8 @@ import {
   me,
   status,
   nearbyChefs,
-  getSearchHintsController
+  getSearchHintsController,
+  checkPhone
 } from "../controllers/userController.js";
 
 const router = express.Router();
@@ -21,5 +22,6 @@ router.get("/me", verifySupabaseToken, me);
 router.get("/status", verifySupabaseToken, status);
 router.get("/nearbyChefs", verifySupabaseToken, nearbyChefs);
 router.get("/search/hints", verifySupabaseToken, getSearchHintsController);
+router.get("/check-phone", verifySupabaseToken, checkPhone);
 
 export default router;

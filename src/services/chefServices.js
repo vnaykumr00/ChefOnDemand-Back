@@ -12,6 +12,11 @@ export const registerChefService = async ({
   about,
   dishes,
   chefType,
+  profileImage,
+  identityImage,
+  bankName,
+  ifscCode,
+  accountNumber
 }) => {
   // 1) users
   const { data: userData, error: userError } = await supabase
@@ -41,7 +46,14 @@ export const registerChefService = async ({
         Cuisine: cuisines,
         Experience: parseInt(experience) || 0,
         About: about || '',
-        ProfileUrl: {},
+        ProfileUrl: {
+          image: profileImage,
+          idProof: identityImage
+        },
+        BankName: bankName,
+        IfscCode: ifscCode,
+        AccountNumber: accountNumber,
+        IsVerified: false, // Default to false
         TotalBookings: 0,
         ResponseRate: 0,
         Rating: 0,

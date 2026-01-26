@@ -2,6 +2,7 @@ import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { supabase } from '../config/supabase.js';
 import dotenv from 'dotenv';
+import bookingService from '../services/bookingService.js';
 
 dotenv.config();
 
@@ -19,7 +20,7 @@ const getRazorpayInstance = () => {
 export const createOrder = async (req, res) => {
     try {
         const { amount, bookingId } = req.body;
-        console.log(`📦 Creating order: Amount=${amount}, BookingId=${bookingId}`);
+
 
         const razorpay = getRazorpayInstance();
         if (!razorpay) throw new Error('Razorpay keys not configured');
@@ -55,10 +56,12 @@ export const verifyPayment = async (req, res) => {
             razorpay_order_id,
             razorpay_payment_id,
             razorpay_signature,
-            bookingId
+            bookingId,
+            amount // We need amount passed back or store it in order/booking. Best to pass it for simplicity if secure enough for this step, or fetch from order. 
+            // Note: In production, verify amount against order ID. 
         } = req.body;
 
-        console.log(`🔍 Verifying Payment: OrderId=${razorpay_order_id}, PaymentId=${razorpay_payment_id}, BookingId=${bookingId}`);
+
 
         const sign = razorpay_order_id + "|" + razorpay_payment_id;
         const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -73,36 +76,30 @@ export const verifyPayment = async (req, res) => {
             .digest("hex");
 
         if (razorpay_signature === expectedSign) {
-            console.log('✅ Payment signature verified');
-            // Payment verified
-            // Update Booking status to 'confirmed'
 
-            const { error: bookingError } = await supabase
-                .from('bookings')
-                .update({ Status: 'confirmed' })
-                .eq('Id', bookingId);
 
-            if (bookingError) {
-                console.error('❌ Error updating booking:', bookingError);
-                throw bookingError;
-            }
-
+            // 1. Create Transaction Record
             const { error: transError } = await supabase
                 .from('transactions')
                 .insert({
                     BookingId: bookingId,
-                    Amount: req.body.amount,
+                    Amount: amount, // Ensure frontend sends this or fetch it
                     Status: 'paid',
                     PaymentMethod: 'razorpay',
                     TransactionRef: razorpay_payment_id,
-                    Commission: (req.body.amount * 0.10).toFixed(2),
-                    ChefPayout: (req.body.amount * 0.90).toFixed(2),
+                    Commission: (amount * 0.10).toFixed(2),
+                    ChefPayout: (amount * 0.90).toFixed(2),
                 });
 
             if (transError) {
                 console.error('❌ Error creating transaction:', transError);
+                // Even if transaction logging fails, we might still want to complete booking? 
+                // Ideally we should rollback or retry. For now throwing.
                 throw transError;
             }
+
+            // 2. Update Booking Status -> This also generates "OTP" in bookingService
+            await bookingService.updateBookingStatus(bookingId, 'PAYMENT_COMPLETED');
 
             res.json({ message: "Payment verified successfully", success: true });
         } else {

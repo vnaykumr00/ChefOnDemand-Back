@@ -1,5 +1,6 @@
 
 import bookingService from '../services/bookingService.js';
+import { supabase } from '../config/supabase.js';
 
 const createBooking = async (req, res) => {
     try {
@@ -34,7 +35,51 @@ const getChefBookings = async (req, res) => {
     try {
         const { chefId } = req.params;
         const bookings = await bookingService.getBookingsByChefId(chefId);
-        res.json(bookings);
+
+        // Fetch Platform Charges to deduct for Chef View
+        let platformCharge = 0;
+        try {
+            const { data: pricingData } = await supabase
+                .from('pricing_rules')
+                .select('Value')
+                .eq('RuleName', 'PLATFORM_CHARGES_PER_DISH')
+                .single();
+            if (pricingData) {
+                platformCharge = Number(pricingData.Value);
+            }
+        } catch (e) {
+            console.warn("Chef Bookings: Failed to fetch platform charges", e);
+        }
+
+        // Deduct charges from the amounts distinct to the Chef
+        const chefBookings = bookings.map(booking => {
+            let numUniqueDishes = 0;
+            if (booking.DishIds && Array.isArray(booking.DishIds)) {
+                // Count unique dishes that have at least 1 quantity
+                numUniqueDishes = booking.DishIds.filter(d => (Number(d.quantity) || 0) > 0).length;
+            }
+
+            const totalDeduction = numUniqueDishes * platformCharge;
+
+            // Deep clone to modify
+            const modifiedBooking = { ...booking };
+
+            // Adjust Total Amount
+            modifiedBooking.TotalAmount = (Number(modifiedBooking.TotalAmount) || 0) - totalDeduction;
+
+            // Adjust Pricing Details if present
+            if (modifiedBooking.PricingDetails) {
+                const details = { ...modifiedBooking.PricingDetails };
+                if (details.foodSubtotal) {
+                    details.foodSubtotal = (Number(details.foodSubtotal) || 0) - totalDeduction;
+                }
+                modifiedBooking.PricingDetails = details;
+            }
+
+            return modifiedBooking;
+        });
+
+        res.json(chefBookings);
     } catch (error) {
         console.error('Error fetching chef bookings:', error);
         res.status(500).json({ error: 'Failed to fetch bookings' });
@@ -81,7 +126,48 @@ const getBookingById = async (req, res) => {
     try {
         const { bookingId } = req.params;
         const booking = await bookingService.getBookingById(bookingId);
-        res.json(booking);
+
+        // If user is a Chef, show net price (Total - Platform Fees)
+        if (req.user && req.user.role === 'chef') {
+            let platformCharge = 0;
+            try {
+                const { data: pricingData } = await supabase
+                    .from('pricing_rules')
+                    .select('Value')
+                    .eq('RuleName', 'PLATFORM_CHARGES_PER_DISH')
+                    .single();
+                if (pricingData) {
+                    platformCharge = Number(pricingData.Value);
+                }
+            } catch (e) {
+                console.warn("Chef Booking Detail: Failed to fetch platform charges", e);
+            }
+
+            let numUniqueDishes = 0;
+            if (booking.DishIds && Array.isArray(booking.DishIds)) {
+                numUniqueDishes = booking.DishIds.filter(d => (Number(d.quantity) || 0) > 0).length;
+            }
+
+            const totalDeduction = numUniqueDishes * platformCharge;
+
+            // Adjust Total Amount
+            const modifiedBooking = { ...booking };
+            modifiedBooking.TotalAmount = (Number(modifiedBooking.TotalAmount) || 0) - totalDeduction;
+
+            // Adjust Pricing Details if present
+            if (modifiedBooking.PricingDetails) {
+                const details = { ...modifiedBooking.PricingDetails };
+                if (details.foodSubtotal) {
+                    details.foodSubtotal = (Number(details.foodSubtotal) || 0) - totalDeduction;
+                }
+                modifiedBooking.PricingDetails = details;
+            }
+            res.json(modifiedBooking);
+        } else {
+            // Customer or other: show full price
+            res.json(booking);
+        }
+
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

@@ -7,11 +7,15 @@ import {
   getAvailabilityService,
   getChefPublicProfileService,
 } from '../services/chefServices.js';
+import { supabase } from '../config/supabase.js';
 
 export const registerChef = async (req, res) => {
   try {
-    const { fullName, phoneNumber, address, cuisines, experience, dishes, about, chefType } =
-      req.body;
+    const {
+      fullName, phoneNumber, address, cuisines, experience,
+      dishes, about, chefType,
+      profileImage, identityImage, bankName, ifscCode, accountNumber
+    } = req.body;
 
     const { id: userId, email } = req.user;
 
@@ -33,6 +37,11 @@ export const registerChef = async (req, res) => {
       dishes,
       about,
       chefType,
+      profileImage,
+      identityImage,
+      bankName,
+      ifscCode,
+      accountNumber
     });
 
     return res.status(201).json({
@@ -70,6 +79,7 @@ export const getRegistrationDishes = async (req, res) => {
         isVegetarian: dish.IsVegetarian,
         ingredients: dish.Ingredients,
         images: dish.ImageUrls,
+        quantity: dish.Quantity,
       })),
     });
   } catch (err) {
@@ -98,6 +108,7 @@ export const getChefProfile = async (req, res) => {
         rating: chefProfile.Rating,
         totalBookings: chefProfile.TotalBookings,
         responseRate: chefProfile.ResponseRate,
+        isVerified: chefProfile.IsVerified,
         dishes: (dishes || []).map(m => {
           return {
             id: m.DishId,
@@ -180,6 +191,21 @@ export const getChefPublicProfile = async (req, res) => {
 
     const { userData, chefProfile, availability, cuisineMap, menuData } = result;
 
+    // Fetch Platform Charges
+    let platformCharge = 0;
+    try {
+      const { data: pricingData } = await supabase
+        .from('pricing_rules')
+        .select('Value')
+        .eq('RuleName', 'PLATFORM_CHARGES_PER_DISH')
+        .single();
+      if (pricingData) {
+        platformCharge = Number(pricingData.Value);
+      }
+    } catch (e) {
+      console.warn("Failed to fetch platform charges", e);
+    }
+
     // Normalize Profile (Supabase might return single object or array depending on relation setup)
     const profile = Array.isArray(chefProfile) ? chefProfile[0] : chefProfile || {};
     const avail = Array.isArray(availability) ? availability[0] : availability || {};
@@ -203,7 +229,7 @@ export const getChefPublicProfile = async (req, res) => {
         return {
           id: m.DishId,
           name: m.dishes?.Name,
-          pricePer100g: m.BasePricePerPerson,
+          pricePer100g: m.BasePricePerPerson + platformCharge,
           ingredients: m.dishes?.Ingredients || [],
           image: m.ImageUrl,
           isSpecial: m.IsSpecial,

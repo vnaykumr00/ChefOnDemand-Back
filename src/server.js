@@ -5,9 +5,7 @@ import app from "./app.js";
 import { supabase } from "./config/supabase.js";
 
 // Debug logs for environment variables (safe check)
-console.log("📝 Environment Check:");
-console.log("- RAZORPAY_KEY_ID:", process.env.RAZORPAY_KEY_ID ? "✅ Found" : "❌ Missing");
-console.log("- RAZORPAY_KEY_SECRET:", process.env.RAZORPAY_KEY_SECRET ? "✅ Found" : "❌ Missing");
+
 
 import http from "http";
 import { Server } from "socket.io";
@@ -23,17 +21,17 @@ const io = new Server(server, {
 
 // Socket.io Logic
 io.on("connection", (socket) => {
-  console.log(`🔌 New client connected: ${socket.id}`);
+
 
   socket.on("join-booking", (bookingId) => {
     socket.join(`booking_${bookingId}`);
-    console.log(`👤 Client joined room: booking_${bookingId}`);
+
   });
 
   socket.on("update-location", async (data) => {
     // data: { bookingId, lat, lng, chefId }
     const { bookingId, lat, lng, chefId } = data;
-    console.log(`📍 Location update for booking ${bookingId}: ${lat}, ${lng}`);
+
 
     // Broadcast to everyone in the room
     io.to(`booking_${bookingId}`).emit("location-updated", { lat, lng });
@@ -56,7 +54,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log(`❌ Client disconnected: ${socket.id}`);
+
   });
 });
 
